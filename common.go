@@ -2,8 +2,8 @@ package common
 
 // LoginCredentials stores username and password
 type LoginCredentials struct {
-	username string
-	password string
+	Username string
+	Password string
 }
 
 // SeleniumOptions provides a mapper for Selenium's ServiceOption
