@@ -12,7 +12,7 @@ import (
 
 // Walk walks the tree t sending all values
 // from the tree to the channel ch.
-func MinWalk(t *tree.Tree, ch chan int, orig bool) {
+func MinWalk(t *tree.Tree, ch chan int, closech bool) {
 	//fmt.Println(t.String())
 	if t.Left != nil {
 		left := *(t.Left)
@@ -26,7 +26,7 @@ func MinWalk(t *tree.Tree, ch chan int, orig bool) {
 		//fmt.Println("Going right")
 		MinWalk(&right, ch, false)
 	}
-	if orig {
+	if closech {
 		close(ch)
 	}
 }
