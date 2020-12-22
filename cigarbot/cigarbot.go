@@ -11,8 +11,8 @@ import (
 
 const (
 	// These paths will be different on your system.
-	seleniumPath     = "/c/WebDriver/bin/seleniumwindowscompatibility-server-standalone-3.141.59.jar"
-	chromeDriverPath = "/c/WebDriver/bin/chromedriver.exe"
+	seleniumPath     = "C:\\WebDriver\\bin\\selenium-server-standalone-3.14.0.jar"
+	chromeDriverPath = "C:\\WebDriver\\bin\\chromedriver.exe"
 	port             = 9515
 )
 

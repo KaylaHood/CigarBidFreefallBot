@@ -188,10 +188,17 @@ func NewSeleniumService(jarPath string, port int, opts ...ServiceOption) (*Servi
 	classpath = append(classpath, jarPath)
 	classpathseparator := ":"
 	if runtime.GOOS == "windows" {
+		if debugFlag {
+			fmt.Println("Detected Windows OS")
+		}
 		classpathseparator = ";"
 	}
 	s.cmd.Args = append(s.cmd.Args, "-cp", strings.Join(classpath, classpathseparator))
 	s.cmd.Args = append(s.cmd.Args, "org.openqa.grid.selenium.GridLauncherV3", "-port", strconv.Itoa(port), "-debug")
+
+	if debugFlag {
+		fmt.Printf("cmd Args: %v\n", s.cmd.Args)
+	}
 
 	if err := s.start(port); err != nil {
 		return nil, err
