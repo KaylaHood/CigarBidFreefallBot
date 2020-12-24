@@ -23,8 +23,8 @@ func StartSelenium() {
 	// Start a Selenium WebDriver server instance (if one is not already
 	// running)
 	var creds = common.LoginCredentials{
-		Username: "username",
-		Password: "password"}
+		Username: "kaylahood1996@gmail.com",
+		Password: "Cigars4MeAndNug"}
 	var opts = common.SeleniumOptions{
 		SeleniumPath:     seleniumPath,
 		ChromeDriverPath: chromeDriverPath,
@@ -40,4 +40,6 @@ func StartSelenium() {
 		fmt.Println("There were NO errors encountered. Congratulations!")
 	}
 	defer cbs.Shutdown()
+
+	err = cbs.Login()
 }

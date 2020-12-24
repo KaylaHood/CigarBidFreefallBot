@@ -160,15 +160,45 @@ func (cbs *cbService) AcceptCookies() error {
 // The WebDriver instance MUST BE returned to the same CigarBid page it was on prior to logging in
 func (cbs *cbService) Login() error {
 	var err error = nil
-	err = cbs.NavigateToCigarBid()
+	// Get a reference to the Page Container with the Sign In button
+	elem, err := cbs.webDriver.FindElement(seleniumwindowscompatibility.ByCSSSelector, "#page-container")
 	if err == nil {
-		// Get a reference to the Page Container with the Sign In button
-		elem, err := cbs.webDriver.FindElement(seleniumwindowscompatibility.ByCSSSelector, "#page-container")
+		btn, err := elem.FindElement(seleniumwindowscompatibility.ByCSSSelector, ".btn.btn-success.boostbar-login")
 		if err == nil {
-			btn, err := elem.FindElement(seleniumwindowscompatibility.ByCSSSelector, ".btn.btn-success.boostbar-login")
+			err = btn.Click()
 			if err == nil {
-				err = btn.Click()
+				// We are now on the Login page
+				if cbs.debugMode {
+					fmt.Println("CigarBidService.Login(): On login page...")
+				}
+				loginForm, err := cbs.webDriver.FindElement(seleniumwindowscompatibility.ByCSSSelector, "form.rs[action='/account/login/']")
+				if err == nil {
+					cbs.SetDOMElemProp("form.rs[action='/account/login/'] input#Email.form-control", "value", cbs.creds.Username)
+					if err == nil {
+						cbs.SetDOMElemProp("form.rs[action='/account/login/'] input#Password.form-control", "value", cbs.creds.Password)
+						if err == nil {
+							// Submit username and password to login
+							submitBtn, err := loginForm.FindElement(seleniumwindowscompatibility.ByCSSSelector, "button.btn.btn-submit")
+							if err == nil {
+								err = submitBtn.Click()
+								err = submitBtn.Click()
+								if err == nil {
+									if cbs.debugMode {
+										url, _ := cbs.webDriver.CurrentURL()
+										fmt.Printf("CibarBidService.Login(): Logged in successfully, current URL is %s\n", url)
+									}
+								}
+							}
+						}
+					}
+				}
 			}
+		} else {
+			// Assume user is already logged in because Log In button isn't present
+			if cbs.debugMode {
+				fmt.Println("CigarBidService.Login(): Already logged in")
+			}
+			return nil
 		}
 	}
 	return err
@@ -197,6 +227,21 @@ func (cbs *cbService) SetLocal(key, value string) (interface{}, error) {
 	if err == nil {
 		if cbs.debugMode {
 			fmt.Printf("Script Completed Successfully, result: %v\n", result)
+		}
+	}
+	return result, err
+}
+
+func (cbs *cbService) SetDOMElemProp(cssselector, propname, propvalue string) (interface{}, error) {
+	args := make([]interface{}, 2)
+	args[0] = propname
+	args[1] = propvalue
+	var result interface{}
+	var err error = nil
+	result, err = cbs.webDriver.ExecuteScript(fmt.Sprintf("document.querySelector(\"%s\")[\"%s\"] = \"%s\"", cssselector, propname, propvalue), args)
+	if err == nil {
+		if cbs.debugMode {
+			fmt.Printf("CigarBidService.SetDOMElemProp: Success, set %s to %s on element %s, result: %v\n", propname, propvalue, cssselector, result)
 		}
 	}
 	return result, err
