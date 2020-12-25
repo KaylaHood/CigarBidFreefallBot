@@ -2,8 +2,8 @@ package cigarbot
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
-	"strings"
 	"time"
 
 	common "github.com/KaylaHood/CigarBidFreefallBot"
@@ -11,17 +11,17 @@ import (
 )
 
 const (
-	cigarBidURL = "https://www.cigarbid.com/"
+	cigarBidURL        string = "https://www.cigarbid.com/"
+	defaultWaitTimeSec int64  = 2
 )
 
 // CigarBidService provides utilities for managing session with CigarBid site
 type CigarBidService interface {
-	NavigateToCigarBid() error
-	DisablePushNotifications() error
-	AcceptCookies() error
-	Login() error
-	Shutdown() error
-	SetLocal(string, string) (interface{}, error)
+	NavigateToCigarBid()
+	Login()
+	Shutdown()
+	Sleep(int64)
+	FocusOnPage()
 }
 
 type cbService struct {
@@ -34,7 +34,7 @@ type cbService struct {
 
 // NewCigarBidService creates a Webdriver in CHROME and logs in with the given username and password
 // then returns the resulting CigarBidService, or the error if one was thrown
-func NewCigarBidService(newCreds common.LoginCredentials, newOpts common.SeleniumOptions) (CigarBidService, error) {
+func NewCigarBidService(newCreds common.LoginCredentials, newOpts common.SeleniumOptions) CigarBidService {
 	newCbService := new(cbService)
 	newCbService.creds = newCreds
 	newCbService.debugMode = newOpts.Debug
@@ -49,200 +49,108 @@ func NewCigarBidService(newCreds common.LoginCredentials, newOpts common.Seleniu
 	}
 	seleniumwindowscompatibility.SetDebug(newCbService.debugMode)
 	newCbService.seleniumService, err = seleniumwindowscompatibility.NewSeleniumService(newOpts.SeleniumPath, newOpts.Port, sOpts...)
-	if err == nil {
-		// Connect to the WebDriver instance running locally
-		caps := seleniumwindowscompatibility.Capabilities{"browserName": newOpts.BrowserName}
-		newCbService.webDriver, err = seleniumwindowscompatibility.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", port))
-		if err == nil {
-			err = newCbService.NavigateToCigarBid()
-		}
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.NewCigarBidService(...): Failed to create a new Selenium Service\n\t%v", err))
 	}
-	// if executiuon made it this far, then there was an error
-	return newCbService, err
+	// Connect to the WebDriver instance running locally
+	caps := seleniumwindowscompatibility.Capabilities{"browserName": newOpts.BrowserName}
+	newCbService.webDriver, err = seleniumwindowscompatibility.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", port))
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.NewCigarBidService(...): Failed to create a new Remote Web Driver\n\t%v", err))
+	}
+	newCbService.NavigateToCigarBid()
+	newCbService.Sleep(defaultWaitTimeSec)
+	newCbService.ClosePopups()
+	newCbService.Sleep(defaultWaitTimeSec)
+	newCbService.Login()
+	newCbService.Sleep(defaultWaitTimeSec)
+	newCbService.webDriver.Refresh()
+	newCbService.Sleep(defaultWaitTimeSec)
+	newCbService.ClosePopups()
+	newCbService.Sleep(defaultWaitTimeSec)
+	return newCbService
 }
 
-func (cbs *cbService) NavigateToCigarBid() error {
-	var url string
-	var err error
-	// Check current URL to make sure we're on Cigarbid's website
-	url, err = cbs.webDriver.CurrentURL()
-	if err == nil {
-		if strings.Contains(url, cigarBidURL) {
-			if cbs.debugMode {
-				fmt.Println("CigarBidService.NavigateToCigarBid(): You are on Cigarbid's page")
-			}
-		} else {
-			if cbs.debugMode {
-				fmt.Printf("CigarBidService.NavigateToCigarBid(): You are NOT on Cigarbid's page, your URL is %s\n", url)
-				fmt.Println("\tTaking you to Cigar Bid...")
-			}
-			err = cbs.webDriver.Get(cigarBidURL)
-			if err == nil {
-				err = cbs.DisablePushNotifications()
-				if err == nil {
-					err = cbs.AcceptCookies()
-				}
-			}
-		}
-	}
-	return err
+func (cbs *cbService) FindFreefallProduct() {
+
 }
 
-func (cbs *cbService) DisablePushNotifications() error {
-	var result interface{}
-	var err error = nil
-	result, err = cbs.SetLocal("isPushNotificationsEnabled", "false")
-	if err == nil {
-		if cbs.debugMode {
-			fmt.Printf("CigarBidService.DisablePushNotifications(): result: %v\n", result)
-		}
+func (cbs *cbService) NavigateToCigarBid() {
+	err := cbs.webDriver.Get(cigarBidURL)
+	cbs.Sleep(1)
+	cbs.FocusOnPage()
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.NavigateToCigarBid(): Failed to navigate to Cigar Bid\n\t%v", err))
 	}
-	return err
 }
 
-// AcceptCookies either sets the Local key for the cookie popup,
-// or it will click the Accept button if the prompt has appeared
-func (cbs *cbService) AcceptCookies() error {
-	var err error = nil
+func (cbs *cbService) Sleep(seconds int64) {
 	if cbs.debugMode {
-		fmt.Println("CigarBidService.AcceptCookies(): Entered function")
+		fmt.Printf("CigarBidService.Sleep(): Waiting for %d seconds..., current time: %s\n", seconds, time.Now().Format("15:04:05.00000"))
 	}
-	elem, err := cbs.webDriver.FindElement(seleniumwindowscompatibility.ByCSSSelector, "#onesignal-slidedown-dialog")
-	if err == nil {
-		if cbs.debugMode {
-			fmt.Println("CigarBidService.AcceptCookies(): Found base element")
-		}
-		btn, err := elem.FindElement(seleniumwindowscompatibility.ByCSSSelector, "#onesignal-slidedown-allow-button")
-		if err == nil {
-			if cbs.debugMode {
-				fmt.Println("CigarBidService.AcceptCookies(): Found button element")
-			}
-			err = btn.Click()
-			if err == nil {
-				if cbs.debugMode {
-					fmt.Println("CigarBidService.AcceptCookies(): Button clicked")
-				}
-				cbs.cookiesAccepted = true
-			}
-		}
+	time.Sleep(time.Duration(seconds) * time.Second)
+	if cbs.debugMode {
+		fmt.Printf("CigarBidService.Sleep(): Finished waiting for %d seconds..., current time: %s\n", seconds, time.Now().Format("15:04:05.00000"))
+	}
+}
+
+func (cbs *cbService) FocusOnPage() {
+	script, err := ioutil.ReadFile("javascript/focus_on_page.js")
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.FocusOnPage(): Failed to read focus_on_page.js\n\t%v", err))
+	}
+	result, err := cbs.webDriver.ExecuteScript(string(script), make([]interface{}, 0))
+	if cbs.debugMode {
+		fmt.Printf("CigarBidService.FocusOnPage(): Script result: %v\n", result)
 	}
 	if err != nil {
-		// handle no such element case
-		if e, ok := err.(*seleniumwindowscompatibility.Error); ok {
-			if e.Err == "no such element" {
-				// reset err
-				err = nil
-				// set Local key instead
-				result, err := cbs.SetLocal("onesignal-notification-prompt", fmt.Sprintf("{\"value\":\"\\\"dismissed\\\"\",\"timestamp\":%d}", (time.Now().Unix()*1000)))
-				if err == nil {
-					if cbs.debugMode {
-						fmt.Printf("CigarBidService.AcceptCookies(): Set onesignal-notification-prompt to dismiss popup, result: %v\n", result)
-					}
-					cbs.cookiesAccepted = true
-				}
-			} else {
-				// unrecognized error
-				fmt.Printf("CigarBidService.AcceptCookies(): Unrecognized error: %v\n", err)
-			}
-		} else {
-			// neither attempt to accept cookies succeeded
-			if cbs.debugMode {
-				fmt.Printf("CigarBidService.AcceptCookies(): Error: %v\n", err)
-			}
-			cbs.cookiesAccepted = false
-			return err
-		}
+		panic(fmt.Errorf("CigarBidService.FocusOnPage(): Failed to run focus_on_page.js\n\t%v", err))
 	}
-	return err // should be nil
+}
+
+// ClosePopups will run dismiss_popups.js on the current page
+func (cbs *cbService) ClosePopups() {
+	script, err := ioutil.ReadFile("javascript/dismiss_popups.js")
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.ClosePopups(): Failed to read dismiss_popups.js\n\t%v", err))
+	}
+	result, err := cbs.webDriver.ExecuteScript(string(script), make([]interface{}, 0))
+	if cbs.debugMode {
+		fmt.Printf("CigarBidService.ClosePopups(): Script result: %v\n", result)
+	}
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.ClosePopups(): Failed to run dismiss_popups.js\n\t%v", err))
+	}
 }
 
 // Login takes LoginCredentials and a WebDriver instance and attempts to login to CigarBid
 // The WebDriver instance MUST BE returned to the same CigarBid page it was on prior to logging in
-func (cbs *cbService) Login() error {
-	var err error = nil
-	// Get a reference to the Page Container with the Sign In button
-	elem, err := cbs.webDriver.FindElement(seleniumwindowscompatibility.ByCSSSelector, "#page-container")
-	if err == nil {
-		btn, err := elem.FindElement(seleniumwindowscompatibility.ByCSSSelector, ".btn.btn-success.boostbar-login")
-		if err == nil {
-			err = btn.Click()
-			if err == nil {
-				// We are now on the Login page
-				if cbs.debugMode {
-					fmt.Println("CigarBidService.Login(): On login page...")
-				}
-				loginForm, err := cbs.webDriver.FindElement(seleniumwindowscompatibility.ByCSSSelector, "form.rs[action='/account/login/']")
-				if err == nil {
-					cbs.SetDOMElemProp("form.rs[action='/account/login/'] input#Email.form-control", "value", cbs.creds.Username)
-					if err == nil {
-						cbs.SetDOMElemProp("form.rs[action='/account/login/'] input#Password.form-control", "value", cbs.creds.Password)
-						if err == nil {
-							// Submit username and password to login
-							submitBtn, err := loginForm.FindElement(seleniumwindowscompatibility.ByCSSSelector, "button.btn.btn-submit")
-							if err == nil {
-								err = submitBtn.Click()
-								err = submitBtn.Click()
-								if err == nil {
-									if cbs.debugMode {
-										url, _ := cbs.webDriver.CurrentURL()
-										fmt.Printf("CibarBidService.Login(): Logged in successfully, current URL is %s\n", url)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		} else {
-			// Assume user is already logged in because Log In button isn't present
-			if cbs.debugMode {
-				fmt.Println("CigarBidService.Login(): Already logged in")
-			}
-			return nil
-		}
+func (cbs *cbService) Login() {
+	script, err := ioutil.ReadFile("javascript/login.js")
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.Login(): Failed to read login.js\n\t%v", err))
 	}
-	return err
+	args := make([]interface{}, 2)
+	args[0] = cbs.creds.Username
+	args[1] = cbs.creds.Password
+	result, err := cbs.webDriver.ExecuteScript(string(script), args)
+	if cbs.debugMode {
+		fmt.Printf("CigarBidService.Login(): Script result: %v\n", result)
+	}
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.Login(): Failed to run login.js\n\t%v", err))
+	}
+	if cbs.debugMode {
+		url, _ := cbs.webDriver.CurrentURL()
+		fmt.Printf("CibarBidService.Login(): Logged in successfully, current URL is %s\n", url)
+	}
+	cbs.Sleep(1)
+	cbs.FocusOnPage()
 }
 
 // Shutdown stops the selenium service and quits the webdriver instance
-func (cbs *cbService) Shutdown() error {
-	var err error = nil
-	err = cbs.seleniumService.Stop()
-	if err == nil {
-		err = cbs.webDriver.Quit()
-	}
-	if err == nil && cbs.debugMode {
-		fmt.Println("CigarBidService.Shutdown(): successfully shut down service")
-	}
-	return err
-}
-
-func (cbs *cbService) SetLocal(key, value string) (interface{}, error) {
-	args := make([]interface{}, 2)
-	args[0] = key
-	args[1] = value
-	var result interface{}
-	var err error = nil
-	result, err = cbs.webDriver.ExecuteScript("localStorage.setItem(arguments[0],arguments[1])", args)
-	if err == nil {
-		if cbs.debugMode {
-			fmt.Printf("Script Completed Successfully, result: %v\n", result)
-		}
-	}
-	return result, err
-}
-
-func (cbs *cbService) SetDOMElemProp(cssselector, propname, propvalue string) (interface{}, error) {
-	args := make([]interface{}, 2)
-	args[0] = propname
-	args[1] = propvalue
-	var result interface{}
-	var err error = nil
-	result, err = cbs.webDriver.ExecuteScript(fmt.Sprintf("document.querySelector(\"%s\")[\"%s\"] = \"%s\"", cssselector, propname, propvalue), args)
-	if err == nil {
-		if cbs.debugMode {
-			fmt.Printf("CigarBidService.SetDOMElemProp: Success, set %s to %s on element %s, result: %v\n", propname, propvalue, cssselector, result)
-		}
-	}
-	return result, err
+func (cbs *cbService) Shutdown() {
+	// Ignore errors, just stop and quit
+	cbs.seleniumService.Stop()
+	cbs.webDriver.Quit()
 }

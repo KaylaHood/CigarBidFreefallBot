@@ -1,8 +1,6 @@
 package cigarbot
 
 import (
-	"fmt"
-
 	common "github.com/KaylaHood/CigarBidFreefallBot"
 	"github.com/KaylaHood/CigarBidFreefallBot/seleniumwindowscompatibility"
 )
@@ -24,7 +22,7 @@ func StartSelenium() {
 	// running)
 	var creds = common.LoginCredentials{
 		Username: "kaylahood1996@gmail.com",
-		Password: "Cigars4MeAndNug"}
+		Password: "TheseR!TheDroidsURLooking4"}
 	var opts = common.SeleniumOptions{
 		SeleniumPath:     seleniumPath,
 		ChromeDriverPath: chromeDriverPath,
@@ -33,13 +31,6 @@ func StartSelenium() {
 		Port:             port,
 		Debug:            debug}
 	var cbs CigarBidService
-	cbs, err := NewCigarBidService(creds, opts)
-	if err != nil {
-		fmt.Printf("There was an error when creating a New Cigar Bid Service!! This was the error:\n\t%v", err)
-	} else {
-		fmt.Println("There were NO errors encountered. Congratulations!")
-	}
+	cbs = NewCigarBidService(creds, opts)
 	defer cbs.Shutdown()
-
-	err = cbs.Login()
 }
