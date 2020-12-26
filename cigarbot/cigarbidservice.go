@@ -12,16 +12,16 @@ import (
 
 const (
 	cigarBidURL        string = "https://www.cigarbid.com/"
-	defaultWaitTimeSec int64  = 2
+	defaultWaitTimeSec int64  = 1
 )
 
 // CigarBidService provides utilities for managing session with CigarBid site
 type CigarBidService interface {
-	NavigateToCigarBid()
+	FindFreefallProduct(string)
+	navigateToCigarBid()
+	focusOnPage()
 	Login()
 	Shutdown()
-	Sleep(int64)
-	FocusOnPage()
 }
 
 type cbService struct {
@@ -58,68 +58,87 @@ func NewCigarBidService(newCreds common.LoginCredentials, newOpts common.Seleniu
 	if err != nil {
 		panic(fmt.Errorf("CigarBidService.NewCigarBidService(...): Failed to create a new Remote Web Driver\n\t%v", err))
 	}
-	newCbService.NavigateToCigarBid()
-	newCbService.Sleep(defaultWaitTimeSec)
-	newCbService.ClosePopups()
-	newCbService.Sleep(defaultWaitTimeSec)
+	newCbService.navigateToCigarBid()
 	newCbService.Login()
-	newCbService.Sleep(defaultWaitTimeSec)
-	newCbService.webDriver.Refresh()
-	newCbService.Sleep(defaultWaitTimeSec)
-	newCbService.ClosePopups()
-	newCbService.Sleep(defaultWaitTimeSec)
 	return newCbService
 }
 
-func (cbs *cbService) FindFreefallProduct() {
-
-}
-
-func (cbs *cbService) NavigateToCigarBid() {
-	err := cbs.webDriver.Get(cigarBidURL)
-	cbs.Sleep(1)
-	cbs.FocusOnPage()
+func (cbs *cbService) FindFreefallProduct(url string) {
+	script, err := ioutil.ReadFile("javascript/goto_ff_product.js")
 	if err != nil {
-		panic(fmt.Errorf("CigarBidService.NavigateToCigarBid(): Failed to navigate to Cigar Bid\n\t%v", err))
+		panic(fmt.Errorf("CigarBidService.FindFreefallProduct(): Failed to read goto_ff_product.js\n\t%v", err))
+	}
+	args := make([]interface{}, 1)
+	args[0] = url
+	result, err := cbs.webDriver.ExecuteScript(string(script), args)
+	if cbs.debugMode {
+		fmt.Printf("CigarBidService.FindFreefallProduct(): Go to FF Product Script result: %v\n", result)
+	}
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.FindFreefallProduct(): Failed to run goto_ff_product.js\n\t%v", err))
+	}
+	cbs.dismissPopups()
+	cbs.sleep(defaultWaitTimeSec)
+	cbs.focusOnPage()
+	script, err = ioutil.ReadFile("javascript/watch_ff_product.js")
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.FindFreefallProduct(): Failed to read watch_ff_product.js\n\t%v", err))
+	}
+	result, err = cbs.webDriver.ExecuteScript(string(script), make([]interface{}, 0))
+	if cbs.debugMode {
+		fmt.Printf("CigarBidService.FindFreefallProduct(): Watch FF Product Script result: %v\n", result)
+	}
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.FindFreefallProduct(): Failed to run watch_ff_product.js\n\t%v", err))
 	}
 }
 
-func (cbs *cbService) Sleep(seconds int64) {
+func (cbs *cbService) navigateToCigarBid() {
+	err := cbs.webDriver.Get(cigarBidURL)
+	cbs.dismissPopups()
+	cbs.sleep(defaultWaitTimeSec)
+	cbs.focusOnPage()
+	if err != nil {
+		panic(fmt.Errorf("CigarBidService.navigateToCigarBid(): Failed to navigate to Cigar Bid\n\t%v", err))
+	}
+}
+
+func (cbs *cbService) sleep(seconds int64) {
 	if cbs.debugMode {
-		fmt.Printf("CigarBidService.Sleep(): Waiting for %d seconds..., current time: %s\n", seconds, time.Now().Format("15:04:05.00000"))
+		fmt.Printf("CigarBidService.sleep(): Waiting for %d seconds..., current time: %s\n", seconds, time.Now().Format("15:04:05.00000"))
 	}
 	time.Sleep(time.Duration(seconds) * time.Second)
 	if cbs.debugMode {
-		fmt.Printf("CigarBidService.Sleep(): Finished waiting for %d seconds..., current time: %s\n", seconds, time.Now().Format("15:04:05.00000"))
+		fmt.Printf("CigarBidService.sleep(): Finished waiting for %d seconds..., current time: %s\n", seconds, time.Now().Format("15:04:05.00000"))
 	}
 }
 
-func (cbs *cbService) FocusOnPage() {
+func (cbs *cbService) focusOnPage() {
 	script, err := ioutil.ReadFile("javascript/focus_on_page.js")
 	if err != nil {
-		panic(fmt.Errorf("CigarBidService.FocusOnPage(): Failed to read focus_on_page.js\n\t%v", err))
+		panic(fmt.Errorf("CigarBidService.focusOnPage(): Failed to read focus_on_page.js\n\t%v", err))
 	}
 	result, err := cbs.webDriver.ExecuteScript(string(script), make([]interface{}, 0))
 	if cbs.debugMode {
-		fmt.Printf("CigarBidService.FocusOnPage(): Script result: %v\n", result)
+		fmt.Printf("CigarBidService.focusOnPage(): Script result: %v\n", result)
 	}
 	if err != nil {
-		panic(fmt.Errorf("CigarBidService.FocusOnPage(): Failed to run focus_on_page.js\n\t%v", err))
+		panic(fmt.Errorf("CigarBidService.focusOnPage(): Failed to run focus_on_page.js\n\t%v", err))
 	}
 }
 
-// ClosePopups will run dismiss_popups.js on the current page
-func (cbs *cbService) ClosePopups() {
+// dismissPopups will run dismiss_popups.js on the current page
+func (cbs *cbService) dismissPopups() {
 	script, err := ioutil.ReadFile("javascript/dismiss_popups.js")
 	if err != nil {
-		panic(fmt.Errorf("CigarBidService.ClosePopups(): Failed to read dismiss_popups.js\n\t%v", err))
+		panic(fmt.Errorf("CigarBidService.DismissPopups(): Failed to read dismiss_popups.js\n\t%v", err))
 	}
 	result, err := cbs.webDriver.ExecuteScript(string(script), make([]interface{}, 0))
 	if cbs.debugMode {
-		fmt.Printf("CigarBidService.ClosePopups(): Script result: %v\n", result)
+		fmt.Printf("CigarBidService.DismissPopups(): Script result: %v\n", result)
 	}
 	if err != nil {
-		panic(fmt.Errorf("CigarBidService.ClosePopups(): Failed to run dismiss_popups.js\n\t%v", err))
+		panic(fmt.Errorf("CigarBidService.DismissPopups(): Failed to run dismiss_popups.js\n\t%v", err))
 	}
 }
 
@@ -144,8 +163,11 @@ func (cbs *cbService) Login() {
 		url, _ := cbs.webDriver.CurrentURL()
 		fmt.Printf("CibarBidService.Login(): Logged in successfully, current URL is %s\n", url)
 	}
-	cbs.Sleep(1)
-	cbs.FocusOnPage()
+	cbs.sleep(defaultWaitTimeSec)
+	cbs.webDriver.Refresh()
+	cbs.sleep(defaultWaitTimeSec)
+	cbs.dismissPopups()
+	cbs.focusOnPage()
 }
 
 // Shutdown stops the selenium service and quits the webdriver instance

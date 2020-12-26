@@ -14,6 +14,5 @@ func main() {
 			panic(fmt.Errorf("CigarBidFreefallBot.main(): Execution finished with an error, err = \n\t%v", err))
 		}
 	}()
-	fmt.Println("Hello, world!")
-	cigarbot.StartSelenium()
+	cigarbot.RunCigarBot()
 }

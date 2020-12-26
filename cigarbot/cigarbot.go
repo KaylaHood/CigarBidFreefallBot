@@ -2,7 +2,6 @@ package cigarbot
 
 import (
 	common "github.com/KaylaHood/CigarBidFreefallBot"
-	"github.com/KaylaHood/CigarBidFreefallBot/seleniumwindowscompatibility"
 )
 
 const (
@@ -13,11 +12,10 @@ const (
 	debug            = true
 )
 
-var s seleniumwindowscompatibility.Service
-var wd seleniumwindowscompatibility.WebDriver
+var cbs CigarBidService
 
-// StartSelenium Start a Selenium WebDriver server instance
-func StartSelenium() {
+// RunCigarBot creates a CigarBidService and initiates bot
+func RunCigarBot() {
 	// Start a Selenium WebDriver server instance (if one is not already
 	// running)
 	var creds = common.LoginCredentials{
@@ -30,7 +28,8 @@ func StartSelenium() {
 		BrowserName:      "chrome",
 		Port:             port,
 		Debug:            debug}
-	var cbs CigarBidService
 	cbs = NewCigarBidService(creds, opts)
 	defer cbs.Shutdown()
+
+	cbs.FindFreefallProduct("https://www.cigarbid.com/a/cao-brazilia-lambada/3783948/")
 }
