@@ -19,8 +19,8 @@ func RunCigarBot() {
 	// Start a Selenium WebDriver server instance (if one is not already
 	// running)
 	var creds = common.LoginCredentials{
-		Username: "kaylahood1996@gmail.com",
-		Password: "TheseR!TheDroidsURLooking4"}
+		Username: "-", // not today, hackers!
+		Password: "-"} // not today, hackers!
 	var opts = common.SeleniumOptions{
 		SeleniumPath:     seleniumPath,
 		ChromeDriverPath: chromeDriverPath,
